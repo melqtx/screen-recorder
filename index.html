@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>weebcast</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1 id="myh1">Web<span class="cast">Cast</span></h1>
+    </header>
+    <main>
+        <section class="before-rec">
+            <p id="text1">Record your screen directly from the web</p>
+            <div class="buttons-container">
+                <button class="recordbtn">Record</button>
+                <button class="stopbtn" disabled>Stop</button>
+            </div>
+        </section>
+
+        <section class="preview-container">
+            <h2>Live Preview</h2>
+            <video class="preview-video" autoplay muted></video>
+        </section>
+
+        <section class="post-record">
+            <h2>Recorded Video</h2>
+            <video class="vid" controls muted></video>
+            <a href="#" class="download-btn" style="display: none;"><button>Download</button></a>
+        </section>
+    </main>
+    <footer>
+        <p>footer part always seems funni to me, like whats the point of having copyright icon.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
