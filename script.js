@@ -8,7 +8,7 @@ const previewVideo = document.querySelector('.preview-video');
 const downloadLink = document.querySelector('.download-btn');
 const stopButton = document.querySelector('.stopbtn');
 const recordButton = document.querySelector('.recordbtn');
-
+//honestly this is just a screen recorder.
 function startRecord() {
   recordButton.disabled = true;
   stopButton.disabled = false;
