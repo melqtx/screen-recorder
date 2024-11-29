@@ -2,8 +2,8 @@
 
 body {
     font-family: "Inter Tight", sans-serif;
-    color: #C8ACD6;
-    background-color: #11111b;
+    color: #ebdbb2;
+    background-color: #282828;
     margin: 0;
     padding: 0;
     display: flex;
@@ -12,9 +12,8 @@ body {
 }
 
 header {
-    background-color: #1e1e2e;
-    padding: 20px;
-    
+    background-color: #3c3836;
+    padding: 15px;
     position: fixed;
     width: 100%;
     top: 0;
@@ -29,7 +28,7 @@ main {
 }
 
 footer {
-    background-color: #1e1e2e;
+    background-color: #3c3836;
     padding: 10px;
     text-align: center;
     position: fixed;
@@ -43,7 +42,7 @@ footer {
 }
 
 #myh1 .cast {
-    color: #04a5e5;
+    color: #fabd2f;
 }
 
 .before-rec {
@@ -68,8 +67,8 @@ footer {
     padding: 12px 24px;
     font-size: 16px;
     font-weight: bold;
-    color: #fff;
-    background-color: #04a5e5;
+    color: #282828;
+    background-color: #fabd2f;
     border: none;
     border-radius: 25px;
     cursor: pointer;
@@ -80,7 +79,7 @@ footer {
 .recordbtn:hover,
 .stopbtn:hover,
 .download-btn button:hover {
-    background-color: #0390c9;
+    background-color: #d79921;
     transform: translateY(-2px);
     box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
 }
@@ -93,7 +92,7 @@ footer {
 }
 
 .stopbtn:disabled {
-    background-color: #ccc;
+    background-color: #928374;
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -108,7 +107,7 @@ footer {
 .vid {
     max-width: 100%;
     height: auto;
-    border: 2px solid #04a5e5;
+    border: 2px solid #fabd2f;
     border-radius: 8px;
 }
 
@@ -119,6 +118,6 @@ footer {
 }
 
 h2 {
-    color: #04a5e5;
+    color: #fabd2f;
     margin-bottom: 10px;
 }
