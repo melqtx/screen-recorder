@@ -63,10 +63,10 @@ footer {
 .theme-switch {
     position: absolute;
     top: 10px;
-    right: 10px;
+    right: 20px; /* Move slider to the right */
     display: inline-block;
-    width: 60px;
-    height: 34px;
+    width: 50px; /* Smaller size */
+    height: 28px; /* Smaller size */
 }
 
 .theme-switch input {
@@ -84,16 +84,16 @@ footer {
     bottom: 0;
     background-color: var(--gray);
     transition: .4s;
-    border-radius: 34px;
+    border-radius: 28px; /* Adjusted for smaller size */
 }
 
 .slider:before {
     position: absolute;
     content: "";
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
+    height: 22px; /* Smaller size */
+    width: 22px; /* Smaller size */
+    left: 3px;
+    bottom: 3px;
     background-color: var(--bg);
     transition: .4s;
     border-radius: 50%;
@@ -104,7 +104,7 @@ input:checked + .slider {
 }
 
 input:checked + .slider:before {
-    transform: translateX(26px);
+    transform: translateX(22px); /* Adjusted for smaller size */
 }
 
 .card {
@@ -115,6 +115,7 @@ input:checked + .slider:before {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     text-align: center;
     width: 300px;
+    background-color: rgba(0, 0, 0, 0.05); /* Slight dark shade */
 }
 
 .timer {
