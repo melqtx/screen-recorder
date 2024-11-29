@@ -6,34 +6,26 @@
     <title>weebcast</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="light">
     <header>
-        <h1 id="myh1">Web<span class="cast">Cast</span></h1>
+        <h1 id="myh1">rek<span class="cast">ord</span></h1>
+        <label class="theme-switch">
+            <input type="checkbox" id="theme-toggle">
+            <span class="slider"></span>
+        </label>
     </header>
     <main>
-        <section class="before-rec">
-            <p id="text1">Record your screen directly from the web</p>
-            <div class="buttons-container">
-                <button class="recordbtn">Record</button>
-                <button class="stopbtn" disabled>Stop</button>
-            </div>
-        </section>
-
-        <section class="preview-container">
-            <h2>Live Preview</h2>
-            <video class="preview-video" autoplay muted></video>
-        </section>
-
-        <section class="post-record">
-            <h2>Recorded Video</h2>
+        <div class="card">
+            <div class="timer" id="timer">00:00:00</div>
+            <button class="recordbtn">Start Recording</button>
+        </div>
+        <div class="preview-container" style="display: none;">
             <video class="vid" controls muted></video>
             <a href="#" class="download-btn" style="display: none;"><button>Download</button></a>
-        </section>
+        </div>
     </main>
     <footer>
-        <p>footer part always seems funni to me, like whats the point of having copyright icon.</p>
-    </footer>
-
+        <p></footer>
     <script src="script.js"></script>
 </body>
 </html>
