@@ -63,7 +63,7 @@ footer {
 .theme-switch {
     position: absolute;
     top: 10px;
-    right: 20px; /* Move slider to the right */
+    right: 60px; /* Move slider to the left */
     display: inline-block;
     width: 50px; /* Smaller size */
     height: 28px; /* Smaller size */
