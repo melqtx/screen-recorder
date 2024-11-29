@@ -5,12 +5,13 @@ let recordedBlob;
 let timerInterval;
 let startTime;
 
-const videoElement = document.querySelector('.vid');
-const recordButton = document.querySelector('.recordbtn');
+const videoElement = document.getElementById('vid');
+const recordButton = document.getElementById('recordbtn');
 const timerElement = document.getElementById('timer');
 const themeToggle = document.getElementById('theme-toggle');
-const previewContainer = document.querySelector('.preview-container');
-const downloadLink = document.querySelector('.download-btn');
+const previewContainer = document.getElementById('preview-container');
+const downloadLink = document.getElementById('download-btn');
+const card = document.getElementById('card');
 
 themeToggle.addEventListener('change', function() {
     document.body.classList.toggle('dark');
@@ -41,6 +42,7 @@ function stopRecord() {
     recordButton.textContent = 'Start Recording';
     stopTimer();
     previewContainer.style.display = 'block';
+    card.classList.add('expanded');
 }
 
 recordButton.addEventListener('click', function() {

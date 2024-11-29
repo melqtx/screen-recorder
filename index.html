@@ -15,15 +15,17 @@
         </label>
     </header>
     <main>
-        <div class="card">
+        <div class="card" id="card">
             <div class="timer" id="timer">00:00:00</div>
-            <button class="recordbtn">Start Recording</button>
-        </div>
-        <div class="preview-container" style="display: none;">
-            <video class="vid" controls muted></video>
-            <a href="#" class="download-btn" style="display: none;"><button>Download</button></a>
+            <button class="recordbtn" id="recordbtn">Start Recording</button>
+            <div class="preview-container" id="preview-container" style="display: none;">
+                <video class="vid" id="vid" controls muted></video>
+                <a href="#" class="download-btn" id="download-btn" style="display: none;"><button>Download</button></a>
+            </div>
         </div>
     </main>
+    <footer>
+        <p></footer>
     <script src="script.js"></script>
 </body>
 </html>

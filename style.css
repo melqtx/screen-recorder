@@ -116,6 +116,12 @@ input:checked + .slider:before {
     text-align: center;
     width: 300px;
     background-color: rgba(0, 0, 0, 0.05); /* Slight dark shade */
+    transition: width 0.3s ease, height 0.3s ease;
+}
+
+.card.expanded {
+    width: 100%;
+    height: auto;
 }
 
 .timer {
