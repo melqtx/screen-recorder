@@ -167,34 +167,40 @@ input:checked + .slider:before {
     border-radius: 8px;
 }
 
-.download-btn {
-    display: inline-block;
-    margin-top: 15px;
-    text-decoration: none;
+.download-section {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
 }
 
-.download-btn button {
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: bold;
-    color: var(--bg);
-    background-color: var(--yellow);
-    border: none;
-    border-radius: 10px;
+.format-select {
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-size: 14px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.download-btn button:hover {
-    background-color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+.format-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
 }
 
-.download-btn button:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.download-btn {
+    padding: 8px 16px;
+    background-color: var(--accent-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.download-btn:hover {
+    background-color: var(--accent-hover-color);
 }
 
 /* Dark theme */

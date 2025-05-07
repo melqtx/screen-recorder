@@ -4,6 +4,7 @@ let mediaRecorder;
 let recordedBlob;
 let timerInterval;
 let startTime;
+let ffmpeg;
 
 const videoElement = document.getElementById('vid');
 const recordButton = document.getElementById('recordbtn');
@@ -12,6 +13,23 @@ const themeToggle = document.getElementById('theme-toggle');
 const previewContainer = document.getElementById('preview-container');
 const downloadLink = document.getElementById('download-btn');
 const card = document.getElementById('card');
+const formatSelect = document.getElementById('format-select');
+
+
+async function initFFmpeg() {
+    try {
+        ffmpeg = createFFmpeg({ 
+            log: true,
+            corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+        });
+        await ffmpeg.load();
+        console.log('FFmpeg loaded successfully');
+    } catch (error) {
+        console.error('Error loading FFmpeg:', error);
+    }
+}
+
+initFFmpeg().catch(console.error);
 
 themeToggle.addEventListener('change', function() {
     document.body.classList.toggle('dark');
@@ -86,10 +104,86 @@ function previewRecording(blob) {
     videoElement.controls = true;
     videoElement.play();
 
-    downloadLink.href = url;
-    downloadLink.download = `recording_${new Date().toISOString()}.webm`;
+    updateDownloadLink(blob);
     downloadLink.style.display = 'inline-block';
 }
+
+async function updateDownloadLink(blob) {
+    const selectedFormat = formatSelect.value;
+    const timestamp = new Date().toISOString();
+    
+    if (selectedFormat === 'webm') {
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = `recording_${timestamp}.webm`;
+    } else {
+        try {
+            // Show loading state
+            downloadLink.textContent = 'Converting...';
+            downloadLink.style.pointerEvents = 'none';
+            
+            if (!ffmpeg.isLoaded()) {
+                console.log('FFmpeg not loaded, loading now...');
+                await ffmpeg.load();
+            }
+
+            const inputFileName = 'input.webm';
+            const outputFileName = `output.${selectedFormat}`;
+            
+            console.log('Writing input file...');
+            ffmpeg.FS('writeFile', inputFileName, await blob.arrayBuffer());
+            
+            console.log('Starting conversion...');
+            if (selectedFormat === 'mp4') {
+                await ffmpeg.run(
+                    '-i', inputFileName,
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-c:a', 'aac',
+                    '-b:a', '128k',
+                    outputFileName
+                );
+            } else if (selectedFormat === 'mp3') {
+                await ffmpeg.run(
+                    '-i', inputFileName,
+                    '-vn',
+                    '-acodec', 'libmp3lame',
+                    '-q:a', '2',
+                    outputFileName
+                );
+            }
+            
+            console.log('Reading output file...');
+            const data = ffmpeg.FS('readFile', outputFileName);
+            
+            const convertedBlob = new Blob([data.buffer], { 
+                type: selectedFormat === 'mp4' ? 'video/mp4' : 'audio/mp3' 
+            });
+            
+            downloadLink.href = URL.createObjectURL(convertedBlob);
+            downloadLink.download = `recording_${timestamp}.${selectedFormat}`;
+            
+            // Clean up files
+            ffmpeg.FS('unlink', inputFileName);
+            ffmpeg.FS('unlink', outputFileName);
+            
+            downloadLink.textContent = 'Download Recording';
+            downloadLink.style.pointerEvents = 'auto';
+            
+        } catch (error) {
+            console.error('Detailed conversion error:', error);
+            alert(`Error converting format: ${error.message}`);
+            // Reset button state
+            downloadLink.textContent = 'Download Recording';
+            downloadLink.style.pointerEvents = 'auto';
+        }
+    }
+}
+
+formatSelect.addEventListener('change', function() {
+    if (recordedBlob) {
+        updateDownloadLink(recordedBlob);
+    }
+});
 
 async function recordScreen() {
     const mimeType = 'video/webm';
