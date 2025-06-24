@@ -15,10 +15,10 @@ const downloadLink = document.getElementById('download-btn');
 const card = document.getElementById('card');
 const formatSelect = document.getElementById('format-select');
 
-
+// Initialize FFmpeg for browser environment
 async function initFFmpeg() {
     try {
-        ffmpeg = createFFmpeg({ 
+        ffmpeg = createFFmpeg({
             log: true,
             corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
         });
@@ -63,9 +63,9 @@ function stopRecord() {
     card.classList.add('expanded');
 }
 
-recordButton.addEventListener('click', function() {
+recordButton.addEventListener('click', async function() {
     if (recordButton.textContent === 'Start Recording') {
-        recordScreen();
+        await recordScreen();
     } else {
         shouldStop = true;
     }
@@ -93,6 +93,7 @@ const handleRecord = function({stream, mimeType}) {
         recordedChunks = [];
         stopRecord();
         previewRecording(recordedBlob);
+        stream.getTracks().forEach(track => track.stop()); // Stop all tracks when recording ends
     };
 
     mediaRecorder.start(200);
@@ -110,36 +111,32 @@ function previewRecording(blob) {
 
 async function updateDownloadLink(blob) {
     const selectedFormat = formatSelect.value;
-    const timestamp = new Date().toISOString();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     
     if (selectedFormat === 'webm') {
         downloadLink.href = URL.createObjectURL(blob);
         downloadLink.download = `recording_${timestamp}.webm`;
     } else {
         try {
-            // Show loading state
             downloadLink.textContent = 'Converting...';
             downloadLink.style.pointerEvents = 'none';
             
             if (!ffmpeg.isLoaded()) {
-                console.log('FFmpeg not loaded, loading now...');
                 await ffmpeg.load();
             }
 
             const inputFileName = 'input.webm';
             const outputFileName = `output.${selectedFormat}`;
             
-            console.log('Writing input file...');
-            ffmpeg.FS('writeFile', inputFileName, await blob.arrayBuffer());
+            ffmpeg.FS('writeFile', inputFileName, await fetchFile(blob));
             
-            console.log('Starting conversion...');
             if (selectedFormat === 'mp4') {
                 await ffmpeg.run(
                     '-i', inputFileName,
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
                     '-c:a', 'aac',
-                    '-b:a', '128k',
+                    '-strict', 'experimental',
                     outputFileName
                 );
             } else if (selectedFormat === 'mp3') {
@@ -152,9 +149,7 @@ async function updateDownloadLink(blob) {
                 );
             }
             
-            console.log('Reading output file...');
             const data = ffmpeg.FS('readFile', outputFileName);
-            
             const convertedBlob = new Blob([data.buffer], { 
                 type: selectedFormat === 'mp4' ? 'video/mp4' : 'audio/mp3' 
             });
@@ -162,17 +157,13 @@ async function updateDownloadLink(blob) {
             downloadLink.href = URL.createObjectURL(convertedBlob);
             downloadLink.download = `recording_${timestamp}.${selectedFormat}`;
             
-            // Clean up files
             ffmpeg.FS('unlink', inputFileName);
             ffmpeg.FS('unlink', outputFileName);
             
-            downloadLink.textContent = 'Download Recording';
-            downloadLink.style.pointerEvents = 'auto';
-            
         } catch (error) {
-            console.error('Detailed conversion error:', error);
-            alert(`Error converting format: ${error.message}`);
-            // Reset button state
+            console.error('Conversion error:', error);
+            alert('Error converting file. Please try again or choose a different format.');
+        } finally {
             downloadLink.textContent = 'Download Recording';
             downloadLink.style.pointerEvents = 'auto';
         }
@@ -186,34 +177,51 @@ formatSelect.addEventListener('change', function() {
 });
 
 async function recordScreen() {
-    const mimeType = 'video/webm';
-    shouldStop = false;
-    const constraints = {video: {cursor: 'motion'}};
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) {
-        return window.alert('Screen Record not supported!');
-    }
-    let stream = null;
-    const displayStream = await navigator.mediaDevices.getDisplayMedia(
-        {video: {cursor: 'motion'}, audio: {'echoCancellation': true}});
-    if (window.confirm('Record audio with screen?')) {
-        const audioContext = new AudioContext();
-        const voiceStream = await navigator.mediaDevices.getUserMedia(
-            {audio: {'echoCancellation': true}, video: false});
-        const userAudio = audioContext.createMediaStreamSource(voiceStream);
-        const audioDestination = audioContext.createMediaStreamDestination();
-        userAudio.connect(audioDestination);
+    try {
+        const mimeType = 'video/webm';
+        shouldStop = false;
 
-        if (displayStream.getAudioTracks().length > 0) {
-            const displayAudio = audioContext.createMediaStreamSource(displayStream);
-            displayAudio.connect(audioDestination);
+        if (!navigator.mediaDevices?.getDisplayMedia) {
+            throw new Error('Screen recording is not supported in your browser');
         }
 
-        const tracks = [
-            ...displayStream.getVideoTracks(), ...audioDestination.stream.getTracks()
-        ];
-        stream = new MediaStream(tracks);
-    } else {
-        stream = displayStream;
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'motion' },
+            audio: { echoCancellation: true }
+        });
+
+        let stream = displayStream;
+
+        if (window.confirm('Record audio with screen?')) {
+            const audioStream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true },
+                video: false
+            });
+
+            const audioContext = new AudioContext();
+            const audioDestination = audioContext.createMediaStreamDestination();
+            
+            // Mix display audio if available
+            if (displayStream.getAudioTracks().length > 0) {
+                const displayAudio = audioContext.createMediaStreamSource(displayStream);
+                displayAudio.connect(audioDestination);
+            }
+
+            // Add user audio
+            const userAudio = audioContext.createMediaStreamSource(audioStream);
+            userAudio.connect(audioDestination);
+
+            // Combine video and audio tracks
+            stream = new MediaStream([
+                ...displayStream.getVideoTracks(),
+                ...audioDestination.stream.getTracks()
+            ]);
+        }
+
+        handleRecord({ stream, mimeType });
+    } catch (error) {
+        console.error('Error starting recording:', error);
+        alert(`Cannot start recording: ${error.message}`);
+        recordButton.textContent = 'Start Recording';
     }
-    handleRecord({stream, mimeType});
 }
