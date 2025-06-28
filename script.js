@@ -15,21 +15,104 @@ const downloadLink = document.getElementById('download-btn');
 const card = document.getElementById('card');
 const formatSelect = document.getElementById('format-select');
 
-// Initialize FFmpeg for browser environment
-async function initFFmpeg() {
+// Custom fetchFile implementation
+async function fetchFile(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+}
+
+// Custom toBlobURL that works with HTTP
+async function toBlobURL(url, mimeType) {
     try {
-        ffmpeg = createFFmpeg({
-            log: true,
-            corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
-        });
-        await ffmpeg.load();
-        console.log('FFmpeg loaded successfully');
+        // Try HTTP version for localhost compatibility
+        const httpUrl = url.replace('https://', 'http://');
+        const response = await fetch(httpUrl);
+        const blob = await response.blob();
+        return URL.createObjectURL(new Blob([blob], { type: mimeType }));
     } catch (error) {
-        console.error('Error loading FFmpeg:', error);
+        console.warn('HTTP fetch failed, trying HTTPS:', error);
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return URL.createObjectURL(new Blob([blob], { type: mimeType }));
     }
 }
 
-initFFmpeg().catch(console.error);
+// Initialize ffmpeg.wasm properly
+async function initFFmpeg() {
+    try {
+        console.log('🔄 Initializing ffmpeg.wasm...');
+        
+        // Wait for libraries to load
+        let attempts = 0;
+        while (attempts < 30) {
+            if (window.FFmpegWASM && window.FFmpegUtil) {
+                break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
+            attempts++;
+            if (attempts % 5 === 0) {
+                console.log(`Waiting for libraries... attempt ${attempts}/30`);
+            }
+        }
+        
+        if (!window.FFmpegWASM) {
+            console.error('FFmpegWASM not available. Available globals:', Object.keys(window).filter(k => k.includes('FFmpeg') || k.includes('ffmpeg')));
+            throw new Error('FFmpegWASM library not loaded');
+        }
+        
+        console.log('📦 Creating FFmpeg instance...');
+        
+        // Get FFmpeg from the global object
+        const { FFmpeg } = window.FFmpegWASM;
+        ffmpeg = new FFmpeg();
+        
+        ffmpeg.on('log', ({ message }) => {
+            console.log('[FFmpeg]', message);
+        });
+        
+        ffmpeg.on('progress', ({ progress }) => {
+            console.log(`[FFmpeg] Progress: ${Math.round(progress * 100)}%`);
+        });
+
+        console.log('⬇️ Loading FFmpeg core...');
+        
+        // Use HTTP URLs for localhost compatibility
+        const baseURL = 'http://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        
+        await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        
+        console.log('✅ ffmpeg.wasm loaded successfully!');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ FFmpeg initialization failed:', error);
+        console.log('Debug info:', {
+            FFmpegWASM: typeof window.FFmpegWASM,
+            FFmpegUtil: typeof window.FFmpegUtil,
+            availableKeys: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg'))
+        });
+        return false;
+    }
+}
+
+// Initialize with proper timing
+let ffmpegReady = false;
+setTimeout(async () => {
+    console.log('🚀 Starting FFmpeg initialization...');
+    ffmpegReady = await initFFmpeg();
+    if (!ffmpegReady) {
+        console.log('🔄 First attempt failed, retrying...');
+        setTimeout(async () => {
+            ffmpegReady = await initFFmpeg();
+            if (!ffmpegReady) {
+                console.error('💀 FFmpeg failed to initialize after retries');
+            }
+        }, 3000);
+    }
+}, 2000);
 
 themeToggle.addEventListener('change', function() {
     document.body.classList.toggle('dark');
@@ -93,7 +176,7 @@ const handleRecord = function({stream, mimeType}) {
         recordedChunks = [];
         stopRecord();
         previewRecording(recordedBlob);
-        stream.getTracks().forEach(track => track.stop()); // Stop all tracks when recording ends
+        stream.getTracks().forEach(track => track.stop());
     };
 
     mediaRecorder.start(200);
@@ -116,53 +199,69 @@ async function updateDownloadLink(blob) {
     if (selectedFormat === 'webm') {
         downloadLink.href = URL.createObjectURL(blob);
         downloadLink.download = `recording_${timestamp}.webm`;
+        downloadLink.textContent = 'Download Recording';
     } else {
         try {
             downloadLink.textContent = 'Converting...';
             downloadLink.style.pointerEvents = 'none';
             
-            if (!ffmpeg.isLoaded()) {
-                await ffmpeg.load();
+            if (!ffmpegReady || !ffmpeg) {
+                throw new Error('FFmpeg not ready. Please wait or refresh the page.');
+            }
+            
+            if (!ffmpeg.loaded) {
+                throw new Error('FFmpeg core not loaded. Please refresh the page.');
             }
 
             const inputFileName = 'input.webm';
             const outputFileName = `output.${selectedFormat}`;
             
-            ffmpeg.FS('writeFile', inputFileName, await fetchFile(blob));
+            console.log('📝 Writing input file...');
+            await ffmpeg.writeFile(inputFileName, await fetchFile(blob));
+            
+            console.log(`🔄 Converting to ${selectedFormat}...`);
             
             if (selectedFormat === 'mp4') {
-                await ffmpeg.run(
+                await ffmpeg.exec([
                     '-i', inputFileName,
                     '-c:v', 'libx264',
-                    '-preset', 'ultrafast',
+                    '-preset', 'fast',
+                    '-crf', '23',
+                    '-pix_fmt', 'yuv420p',
                     '-c:a', 'aac',
-                    '-strict', 'experimental',
+                    '-b:a', '128k',
+                    '-movflags', 'faststart',
                     outputFileName
-                );
+                ]);
             } else if (selectedFormat === 'mp3') {
-                await ffmpeg.run(
+                await ffmpeg.exec([
                     '-i', inputFileName,
                     '-vn',
                     '-acodec', 'libmp3lame',
                     '-q:a', '2',
                     outputFileName
-                );
+                ]);
             }
             
-            const data = ffmpeg.FS('readFile', outputFileName);
-            const convertedBlob = new Blob([data.buffer], { 
+            console.log('📖 Reading output file...');
+            const data = await ffmpeg.readFile(outputFileName);
+            
+            const convertedBlob = new Blob([data], { 
                 type: selectedFormat === 'mp4' ? 'video/mp4' : 'audio/mp3' 
             });
             
             downloadLink.href = URL.createObjectURL(convertedBlob);
             downloadLink.download = `recording_${timestamp}.${selectedFormat}`;
             
-            ffmpeg.FS('unlink', inputFileName);
-            ffmpeg.FS('unlink', outputFileName);
+            console.log('🧹 Cleaning up...');
+            await ffmpeg.deleteFile(inputFileName);
+            await ffmpeg.deleteFile(outputFileName);
+            
+            console.log('🎉 Conversion completed successfully!');
             
         } catch (error) {
-            console.error('Conversion error:', error);
-            alert('Error converting file. Please try again or choose a different format.');
+            console.error('❌ Conversion failed:', error);
+            alert(`Conversion failed: ${error.message}`);
         } finally {
             downloadLink.textContent = 'Download Recording';
             downloadLink.style.pointerEvents = 'auto';
@@ -201,17 +300,14 @@ async function recordScreen() {
             const audioContext = new AudioContext();
             const audioDestination = audioContext.createMediaStreamDestination();
             
-            // Mix display audio if available
             if (displayStream.getAudioTracks().length > 0) {
                 const displayAudio = audioContext.createMediaStreamSource(displayStream);
                 displayAudio.connect(audioDestination);
             }
 
-            // Add user audio
             const userAudio = audioContext.createMediaStreamSource(audioStream);
             userAudio.connect(audioDestination);
 
-            // Combine video and audio tracks
             stream = new MediaStream([
                 ...displayStream.getVideoTracks(),
                 ...audioDestination.stream.getTracks()
