@@ -32,17 +32,12 @@
         </div>
     </main>
 
-    <script crossorigin src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/index.js"></script>
-    <script crossorigin src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"></script>
     <script>
-        console.log('Script loaded, checking globals:', {
-            FFmpeg: typeof FFmpeg,
-            FFmpegWASM: typeof FFmpegWASM, 
-            FFmpegUtil: typeof FFmpegUtil,
-            window_FFmpeg: typeof window.FFmpeg,
-            window_FFmpegWASM: typeof window.FFmpegWASM,
-            window_FFmpegUtil: typeof window.FFmpegUtil,
-            allKeys: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg'))
+        console.log('FFmpeg 0.11.0 loaded, checking globals:', {
+            createFFmpeg: typeof createFFmpeg,
+            fetchFile: typeof fetchFile,
         });
     </script>
     <script src="script.js"></script>

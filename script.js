@@ -15,167 +15,46 @@ const downloadLink = document.getElementById('download-btn');
 const card = document.getElementById('card');
 const formatSelect = document.getElementById('format-select');
 
-// Custom fetchFile implementation
-async function fetchFile(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
-}
-
-// Custom toBlobURL that works with HTTP
-async function toBlobURL(url, mimeType) {
-    try {
-        // Try HTTP version for localhost compatibility
-        const httpUrl = url.replace('https://', 'http://');
-        const response = await fetch(httpUrl);
-        const blob = await response.blob();
-        return URL.createObjectURL(new Blob([blob], { type: mimeType }));
-    } catch (error) {
-        console.warn('HTTP fetch failed, trying HTTPS:', error);
-        const response = await fetch(url);
-        const blob = await response.blob();
-        return URL.createObjectURL(new Blob([blob], { type: mimeType }));
-    }
-}
-
-// Initialize ffmpeg.wasm properly
+// Initialize FFmpeg using the STABLE 0.11.0 API
 async function initFFmpeg() {
     try {
-        console.log('🔄 Initializing ffmpeg.wasm...');
+        console.log('🔄 Initializing FFmpeg 0.11.0...');
         
-        // Wait for libraries to load and check all possible global locations
+        // Wait for the old FFmpeg library to load
         let attempts = 0;
-        let FFmpegConstructor, fetchFileUtil, toBlobURLUtil;
-        
-        while (attempts < 50) {
-            // Check various possible global object locations
-            if (window.FFmpeg && window.FFmpeg.FFmpeg) {
-                FFmpegConstructor = window.FFmpeg.FFmpeg;
-                fetchFileUtil = window.FFmpeg.fetchFile;
-                toBlobURLUtil = window.FFmpeg.toBlobURL;
-                console.log('Found FFmpeg in window.FFmpeg');
-                break;
-            } else if (window.FFmpegWASM && window.FFmpegWASM.FFmpeg) {
-                FFmpegConstructor = window.FFmpegWASM.FFmpeg;
-                fetchFileUtil = window.FFmpegWASM.fetchFile || window.FFmpegUtil?.fetchFile;
-                toBlobURLUtil = window.FFmpegWASM.toBlobURL || window.FFmpegUtil?.toBlobURL;
-                console.log('Found FFmpeg in window.FFmpegWASM');
-                break;
-            } else if (typeof FFmpeg !== 'undefined' && FFmpeg.FFmpeg) {
-                FFmpegConstructor = FFmpeg.FFmpeg;
-                fetchFileUtil = FFmpeg.fetchFile;
-                toBlobURLUtil = FFmpeg.toBlobURL;
-                console.log('Found FFmpeg in global FFmpeg');
-                break;
-            } else if (typeof FFmpegWASM !== 'undefined' && FFmpegWASM.FFmpeg) {
-                FFmpegConstructor = FFmpegWASM.FFmpeg;
-                fetchFileUtil = FFmpegWASM.fetchFile || FFmpegUtil?.fetchFile;
-                toBlobURLUtil = FFmpegWASM.toBlobURL || FFmpegUtil?.toBlobURL;
-                console.log('Found FFmpeg in global FFmpegWASM');
+        while (attempts < 30) {
+            if (typeof createFFmpeg !== 'undefined') {
                 break;
             }
-            
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
             attempts++;
-            if (attempts % 10 === 0) {
-                console.log(`Waiting for FFmpeg libraries... attempt ${attempts}/50`);
-                console.log('Current globals:', {
-                    FFmpeg: typeof FFmpeg,
-                    FFmpegWASM: typeof FFmpegWASM,
-                    FFmpegUtil: typeof FFmpegUtil,
-                    'window.FFmpeg': typeof window.FFmpeg,
-                    'window.FFmpegWASM': typeof window.FFmpegWASM,
-                    'window.FFmpegUtil': typeof window.FFmpegUtil
-                });
+            if (attempts % 5 === 0) {
+                console.log(`Waiting for createFFmpeg... attempt ${attempts}/30`);
             }
         }
         
-        if (!FFmpegConstructor) {
-            console.error('FFmpeg constructor not found. Final globals check:', {
-                availableGlobals: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg')),
-                windowFFmpeg: window.FFmpeg,
-                windowFFmpegWASM: window.FFmpegWASM,
-                globalFFmpeg: typeof FFmpeg !== 'undefined' ? FFmpeg : 'undefined',
-                globalFFmpegWASM: typeof FFmpegWASM !== 'undefined' ? FFmpegWASM : 'undefined'
-            });
-            throw new Error('FFmpeg constructor not found after 50 attempts');
+        if (typeof createFFmpeg === 'undefined') {
+            throw new Error('createFFmpeg not found - FFmpeg 0.11.0 library failed to load');
         }
         
-        console.log('📦 Creating FFmpeg instance...');
-        ffmpeg = new FFmpegConstructor();
-        
-        ffmpeg.on('log', ({ message }) => {
-            console.log('[FFmpeg]', message);
+        console.log('📦 Creating FFmpeg instance with 0.11.0 API...');
+        ffmpeg = createFFmpeg({
+            log: true,
+            corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
         });
         
-        ffmpeg.on('progress', ({ progress }) => {
-            console.log(`[FFmpeg] Progress: ${Math.round(progress * 100)}%`);
-        });
-
         console.log('⬇️ Loading FFmpeg core...');
+        await ffmpeg.load();
         
-        // Try different CDNs to avoid security errors
-        const cdnOptions = [
-            'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd',
-            'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd',
-            'https://cdn.skypack.dev/@ffmpeg/core@0.12.6/dist/umd'
-        ];
-        
-        let loadSuccess = false;
-        
-        for (const baseURL of cdnOptions) {
-            try {
-                console.log(`Trying CDN: ${baseURL}`);
-                
-                // Use either the utility functions or create blob URLs manually
-                let coreURL, wasmURL;
-                if (toBlobURLUtil) {
-                    coreURL = await toBlobURLUtil(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
-                    wasmURL = await toBlobURLUtil(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
-                } else {
-                    // Fallback: create blob URLs manually
-                    const coreResponse = await fetch(`${baseURL}/ffmpeg-core.js`);
-                    const coreBlob = await coreResponse.blob();
-                    coreURL = URL.createObjectURL(new Blob([coreBlob], { type: 'text/javascript' }));
-                    
-                    const wasmResponse = await fetch(`${baseURL}/ffmpeg-core.wasm`);
-                    const wasmBlob = await wasmResponse.blob();
-                    wasmURL = URL.createObjectURL(new Blob([wasmBlob], { type: 'application/wasm' }));
-                }
-                
-                await ffmpeg.load({
-                    coreURL: coreURL,
-                    wasmURL: wasmURL,
-                });
-                
-                console.log(`✅ FFmpeg loaded successfully from ${baseURL}!`);
-                loadSuccess = true;
-                break;
-                
-            } catch (error) {
-                console.warn(`Failed to load from ${baseURL}:`, error.message);
-                continue;
-            }
-        }
-        
-        if (!loadSuccess) {
-            throw new Error('Failed to load FFmpeg core from all CDN options');
-        }
-        
-        // Store fetchFile function
-        if (fetchFileUtil) {
-            window.fetchFile = fetchFileUtil;
-        } else {
-            window.fetchFile = fetchFile; // Use our custom implementation
-        }
-        
+        console.log('✅ FFmpeg 0.11.0 loaded successfully!');
         return true;
         
     } catch (error) {
         console.error('❌ FFmpeg initialization failed:', error);
-        console.log('Final debug info:', {
-            error: error.message,
-            stack: error.stack,
-            availableGlobals: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg'))
+        console.log('Available globals:', {
+            createFFmpeg: typeof createFFmpeg,
+            fetchFile: typeof fetchFile,
+            windowKeys: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg'))
         });
         return false;
     }
@@ -184,7 +63,7 @@ async function initFFmpeg() {
 // Initialize with proper timing
 let ffmpegReady = false;
 setTimeout(async () => {
-    console.log('🚀 Starting FFmpeg initialization...');
+    console.log('🚀 Starting FFmpeg 0.11.0 initialization...');
     ffmpegReady = await initFFmpeg();
     if (!ffmpegReady) {
         console.log('🔄 First attempt failed, retrying...');
@@ -192,11 +71,10 @@ setTimeout(async () => {
             ffmpegReady = await initFFmpeg();
             if (!ffmpegReady) {
                 console.error('💀 FFmpeg failed to initialize after retries');
-                console.log('💡 Try refreshing the page or check your internet connection');
             }
-        }, 5000);
+        }, 3000);
     }
-}, 3000);
+}, 2000);
 
 themeToggle.addEventListener('change', function() {
     document.body.classList.toggle('dark');
@@ -293,20 +171,25 @@ async function updateDownloadLink(blob) {
                 throw new Error('FFmpeg not ready. Please wait or refresh the page.');
             }
             
-            if (!ffmpeg.loaded) {
-                throw new Error('FFmpeg core not loaded. Please refresh the page.');
+            if (!ffmpeg.isLoaded()) {
+                console.log('🔄 FFmpeg not loaded, attempting to load...');
+                await ffmpeg.load();
             }
 
             const inputFileName = 'input.webm';
             const outputFileName = `output.${selectedFormat}`;
             
-            console.log('📝 Writing input file...');
-            await ffmpeg.writeFile(inputFileName, await window.fetchFile(blob));
+            console.log('📝 Converting blob to Uint8Array...');
+            const arrayBuffer = await blob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            console.log('💾 Writing input file to FFmpeg filesystem...');
+            ffmpeg.FS('writeFile', inputFileName, uint8Array);
             
             console.log(`🔄 Converting to ${selectedFormat}...`);
             
             if (selectedFormat === 'mp4') {
-                await ffmpeg.exec([
+                await ffmpeg.run(
                     '-i', inputFileName,
                     '-c:v', 'libx264',
                     '-preset', 'fast',
@@ -316,21 +199,21 @@ async function updateDownloadLink(blob) {
                     '-b:a', '128k',
                     '-movflags', 'faststart',
                     outputFileName
-                ]);
+                );
             } else if (selectedFormat === 'mp3') {
-                await ffmpeg.exec([
+                await ffmpeg.run(
                     '-i', inputFileName,
                     '-vn',
                     '-acodec', 'libmp3lame',
                     '-q:a', '2',
                     outputFileName
-                ]);
+                );
             }
             
             console.log('📖 Reading output file...');
-            const data = await ffmpeg.readFile(outputFileName);
+            const data = ffmpeg.FS('readFile', outputFileName);
             
-            const convertedBlob = new Blob([data], { 
+            const convertedBlob = new Blob([data.buffer], { 
                 type: selectedFormat === 'mp4' ? 'video/mp4' : 'audio/mp3' 
             });
             
@@ -338,10 +221,10 @@ async function updateDownloadLink(blob) {
             downloadLink.download = `recording_${timestamp}.${selectedFormat}`;
             
             console.log('🧹 Cleaning up...');
-            await ffmpeg.deleteFile(inputFileName);
-            await ffmpeg.deleteFile(outputFileName);
+            ffmpeg.FS('unlink', inputFileName);
+            ffmpeg.FS('unlink', outputFileName);
             
-            console.log('🎉 Conversion completed successfully!');
+            console.log('🎉 MP4 conversion completed successfully!');
             
         } catch (error) {
             console.error('❌ Conversion failed:', error);
