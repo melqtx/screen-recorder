@@ -113,31 +113,53 @@ async function initFFmpeg() {
 
         console.log('⬇️ Loading FFmpeg core...');
         
-        // Use HTTPS URLs for HTTPS sites
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        // Try different CDNs to avoid security errors
+        const cdnOptions = [
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd',
+            'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd',
+            'https://cdn.skypack.dev/@ffmpeg/core@0.12.6/dist/umd'
+        ];
         
-        // Use either the utility functions or create blob URLs manually
-        let coreURL, wasmURL;
-        if (toBlobURLUtil) {
-            coreURL = await toBlobURLUtil(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
-            wasmURL = await toBlobURLUtil(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
-        } else {
-            // Fallback: create blob URLs manually
-            const coreResponse = await fetch(`${baseURL}/ffmpeg-core.js`);
-            const coreBlob = await coreResponse.blob();
-            coreURL = URL.createObjectURL(new Blob([coreBlob], { type: 'text/javascript' }));
-            
-            const wasmResponse = await fetch(`${baseURL}/ffmpeg-core.wasm`);
-            const wasmBlob = await wasmResponse.blob();
-            wasmURL = URL.createObjectURL(new Blob([wasmBlob], { type: 'application/wasm' }));
+        let loadSuccess = false;
+        
+        for (const baseURL of cdnOptions) {
+            try {
+                console.log(`Trying CDN: ${baseURL}`);
+                
+                // Use either the utility functions or create blob URLs manually
+                let coreURL, wasmURL;
+                if (toBlobURLUtil) {
+                    coreURL = await toBlobURLUtil(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+                    wasmURL = await toBlobURLUtil(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+                } else {
+                    // Fallback: create blob URLs manually
+                    const coreResponse = await fetch(`${baseURL}/ffmpeg-core.js`);
+                    const coreBlob = await coreResponse.blob();
+                    coreURL = URL.createObjectURL(new Blob([coreBlob], { type: 'text/javascript' }));
+                    
+                    const wasmResponse = await fetch(`${baseURL}/ffmpeg-core.wasm`);
+                    const wasmBlob = await wasmResponse.blob();
+                    wasmURL = URL.createObjectURL(new Blob([wasmBlob], { type: 'application/wasm' }));
+                }
+                
+                await ffmpeg.load({
+                    coreURL: coreURL,
+                    wasmURL: wasmURL,
+                });
+                
+                console.log(`✅ FFmpeg loaded successfully from ${baseURL}!`);
+                loadSuccess = true;
+                break;
+                
+            } catch (error) {
+                console.warn(`Failed to load from ${baseURL}:`, error.message);
+                continue;
+            }
         }
         
-        await ffmpeg.load({
-            coreURL: coreURL,
-            wasmURL: wasmURL,
-        });
-        
-        console.log('✅ ffmpeg.wasm loaded successfully!');
+        if (!loadSuccess) {
+            throw new Error('Failed to load FFmpeg core from all CDN options');
+        }
         
         // Store fetchFile function
         if (fetchFileUtil) {
