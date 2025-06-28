@@ -32,8 +32,19 @@
         </div>
     </main>
 
-    <script src="http://unpkg.com/@ffmpeg/util@0.12.1/dist/index.js"></script>
-    <script src="http://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script crossorigin src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/index.js"></script>
+    <script crossorigin src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script>
+        console.log('Script loaded, checking globals:', {
+            FFmpeg: typeof FFmpeg,
+            FFmpegWASM: typeof FFmpegWASM, 
+            FFmpegUtil: typeof FFmpegUtil,
+            window_FFmpeg: typeof window.FFmpeg,
+            window_FFmpegWASM: typeof window.FFmpegWASM,
+            window_FFmpegUtil: typeof window.FFmpegUtil,
+            allKeys: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg'))
+        });
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
