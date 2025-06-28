@@ -32,12 +32,52 @@
         </div>
     </main>
 
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"></script>
     <script>
-        console.log('FFmpeg 0.11.0 loaded, checking globals:', {
-            createFFmpeg: typeof createFFmpeg,
-            fetchFile: typeof fetchFile,
+        // Load FFmpeg scripts dynamically with fallbacks
+        async function loadFFmpegScripts() {
+            console.log('🔄 Loading FFmpeg scripts...');
+            
+            const cdnOptions = [
+                'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js',
+                'https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js',
+            ];
+            
+            for (const url of cdnOptions) {
+                try {
+                    console.log(`Trying to load FFmpeg from: ${url}`);
+                    await loadScript(url);
+                    if (typeof createFFmpeg !== 'undefined') {
+                        console.log('✅ FFmpeg script loaded successfully!');
+                        return true;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to load from ${url}:`, error);
+                }
+            }
+            
+            console.error('❌ Failed to load FFmpeg from all CDN options');
+            return false;
+        }
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Load scripts when page loads
+        window.addEventListener('load', async () => {
+            const loaded = await loadFFmpegScripts();
+            if (loaded) {
+                console.log('FFmpeg ready, checking globals:', {
+                    createFFmpeg: typeof createFFmpeg,
+                    fetchFile: typeof fetchFile,
+                });
+            }
         });
     </script>
     <script src="script.js"></script>

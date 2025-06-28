@@ -20,21 +20,23 @@ async function initFFmpeg() {
     try {
         console.log('🔄 Initializing FFmpeg 0.11.0...');
         
-        // Wait for the old FFmpeg library to load
+        // Wait for the FFmpeg library to load (now loaded dynamically)
         let attempts = 0;
-        while (attempts < 30) {
+        while (attempts < 50) {
             if (typeof createFFmpeg !== 'undefined') {
+                console.log('✅ createFFmpeg found!');
                 break;
             }
             await new Promise(resolve => setTimeout(resolve, 200));
             attempts++;
-            if (attempts % 5 === 0) {
-                console.log(`Waiting for createFFmpeg... attempt ${attempts}/30`);
+            if (attempts % 10 === 0) {
+                console.log(`Waiting for createFFmpeg... attempt ${attempts}/50`);
+                console.log('Current window keys with ffmpeg:', Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg')));
             }
         }
         
         if (typeof createFFmpeg === 'undefined') {
-            throw new Error('createFFmpeg not found - FFmpeg 0.11.0 library failed to load');
+            throw new Error('createFFmpeg not found after 50 attempts - FFmpeg 0.11.0 library failed to load');
         }
         
         console.log('📦 Creating FFmpeg instance with 0.11.0 API...');
@@ -46,35 +48,37 @@ async function initFFmpeg() {
         console.log('⬇️ Loading FFmpeg core...');
         await ffmpeg.load();
         
-        console.log('✅ FFmpeg 0.11.0 loaded successfully!');
+        console.log('✅ FFmpeg 0.11.0 loaded and ready for MP4 conversion!');
         return true;
         
     } catch (error) {
         console.error('❌ FFmpeg initialization failed:', error);
-        console.log('Available globals:', {
+        console.log('Debug info:', {
             createFFmpeg: typeof createFFmpeg,
             fetchFile: typeof fetchFile,
-            windowKeys: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg'))
+            windowKeys: Object.keys(window).filter(k => k.toLowerCase().includes('ffmpeg')),
+            allGlobals: Object.keys(window).slice(0, 20) // Show first 20 globals
         });
         return false;
     }
 }
 
-// Initialize with proper timing
+// Initialize with proper timing - wait longer for dynamic script loading
 let ffmpegReady = false;
 setTimeout(async () => {
     console.log('🚀 Starting FFmpeg 0.11.0 initialization...');
     ffmpegReady = await initFFmpeg();
     if (!ffmpegReady) {
-        console.log('🔄 First attempt failed, retrying...');
+        console.log('🔄 First attempt failed, retrying in 5 seconds...');
         setTimeout(async () => {
             ffmpegReady = await initFFmpeg();
             if (!ffmpegReady) {
                 console.error('💀 FFmpeg failed to initialize after retries');
+                console.log('💡 The MP4 conversion feature is unavailable. You can still download as WebM.');
             }
-        }, 3000);
+        }, 5000);
     }
-}, 2000);
+}, 4000); // Wait 4 seconds for scripts to load
 
 themeToggle.addEventListener('change', function() {
     document.body.classList.toggle('dark');
@@ -168,7 +172,7 @@ async function updateDownloadLink(blob) {
             downloadLink.style.pointerEvents = 'none';
             
             if (!ffmpegReady || !ffmpeg) {
-                throw new Error('FFmpeg not ready. Please wait or refresh the page.');
+                throw new Error('FFmpeg not ready. Try refreshing the page or download as WebM instead.');
             }
             
             if (!ffmpeg.isLoaded()) {
@@ -228,7 +232,7 @@ async function updateDownloadLink(blob) {
             
         } catch (error) {
             console.error('❌ Conversion failed:', error);
-            alert(`Conversion failed: ${error.message}`);
+            alert(`Conversion failed: ${error.message}. You can download as WebM instead.`);
         } finally {
             downloadLink.textContent = 'Download Recording';
             downloadLink.style.pointerEvents = 'auto';
